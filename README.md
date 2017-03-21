@@ -16,6 +16,7 @@ To make tests you will need PHPUnit
 
 Open the command line and browse to your project path and run the command:
 * `composer install`
+* `composer dump-autoload --optimize`
 
 Tests
 -----------
