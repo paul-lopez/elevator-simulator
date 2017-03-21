@@ -1,12 +1,26 @@
-# Elevator Test Case
+# Elevator Test Case in PHP
 
 Introduction
 ------------
 This project used to demo Elevator Class Test
 
+Requirements
+-----------
+* Composer: you can get from `https://getcomposer.org/download/`
+* PHP >= 5
+* PHPUnit >= 4
+
+Before start
+-----------
+To make tests you will need PHPUnit
+
+Open the command line and browse to your project path and run the command:
+* `composer install`
+
 Tests
 -----------
-In the console run `phpunit tests`
+Open the command line and browse to your project path and run the command: 
+* `phpunit tests`
 
 Example Use
 -----------
