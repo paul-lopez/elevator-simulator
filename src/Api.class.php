@@ -20,30 +20,16 @@ class Api {
 			'maintenance'
 	);
 	private $data = array ();
-// 	protected $current_floor;
-// 	protected $total_floors;
-// 	protected $direction;
-// 	protected $queue_up;
-// 	protected $queue_down;
-// 	protected $maintenance;
 
 	protected $expires; 
-	/**
-	 * Initial Setup
-	 */
+
 	public function __construct() {
 		$this->expires = time()+60*60*24;
 		$this->updateObjectFromCookies();
 		$this->elevator = new Elevator ( $this->current_floor, $this->total_floors,$this->direction,$this->queue_up,$this->queue_down,$this->maintenance);
 		$this->inheritVals();
 	}
-	public function __destruct(){
-// 		$this->updateCookiesFromObject();
-		Log::save('');
-		Log::save('');
-		Log::save('');
-		Log::save('');
-	}
+
 	public function resetLog(){
 		Log::reset();
 		return $this->response('resetLog',true);
@@ -143,9 +129,8 @@ class Api {
 		Log::save('=============================');
 		
 		$this->getCookieVals();
-		
 		return true;
-// 		return $this->response('updateCookiesFromObject',true);
+
 	}
 	/**
 	 * If the cookie its not set, give initial value from properties
