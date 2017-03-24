@@ -27,20 +27,21 @@ Example Use
 -----------
 * Usage example in `example.php`. 
 
-* Api demo at `api.php`. 
+* Api demo at `public_html/api.php`. 
+	Online: http://ventasmasivasapp.com/elevator/index.php
 
 * Below is sample api:
 	1. http://yourdomain.com/elevator/api.php?action=setCurrentFloor&val=1
 	2. http://yourdomain.com/elevator/api.php?action=setTotalFloors&val=7
 	3. http://yourdomain.com/elevator/api.php?action=setDirection&val=up
 	4. http://yourdomain.com/elevator/api.php?action=setMaintenance&val=2
-	5. http://yourdomain.com/elevator/api.php?action=getQueue
-	6. http://yourdomain.com/elevator/api.php?action=request&floor=6&direction=down
-	7. http://yourdomain.com/elevator/api.php?action=getStatus
-	8. http://yourdomain.com/elevator/api.php?action=getCookieVals
-	9. http://yourdomain.com/elevator/api.php?action=move
-	10. http://yourdomain.com/elevator/api.php?action=resetCookies
-	11. http://yourdomain.com/elevator/api.php?action=resetLog
+	5. http://yourdomain.com/elevator/api.php?action=setPressButton&floor=6&direction=down	
+	6. http://yourdomain.com/elevator/api.php?action=getQueue
+	7. http://yourdomain.com/elevator/api.php?action=getStatusFromSession
+	8. http://yourdomain.com/elevator/api.php?action=getStatusFromSession
+	9. http://yourdomain.com/elevator/api.php?action=getNextFloor
+	10. http://yourdomain.com/elevator/api.php?action=setResetSession
+	11. http://yourdomain.com/elevator/api.php?action=setResetLog
 
 * Wrapper Response from api:
 
