@@ -3,35 +3,30 @@ namespace App;
 use App\Log;
 class Elevator{
 	private static $debug = false;
+	private static $debug_level='';//debug,save
 	protected $direction = 'up';//up,down,stand,maintenance
 	protected $current_floor = 1;
 	protected $queue = array('up'=>array(),'down'=>array());
 	protected $signal=  'door_close';//door_open,door_close,alarm
 	protected $max_floor = 1;	
 	protected $maintenance_floors = array();	
-	protected $state = 'stand';	//up,down,stand,maintenance
-	
-	/**
-	 * Setup number of floors of the building and direction one to up and other down
-	 * @param $current_floor The elevator floor
-	 * @param $nFloors number of floors in the building
-	 */
-	public function __construct($current_floor,$nFloors,$direction='up',$queue_up=array(),$queue_down=array() ){		
-		$this->setCurrentFloor($current_floor);
-		$this->setTotalFloors($nFloors);
-		$this->setDirection($direction);
-		if(is_array($queue_up)){
-			$this->setQueue('up',array_unique($queue_up) );
-		}
-		if(is_array($queue_down)){
-			$this->setQueue('down',array_unique($queue_down) );
-		}
+	protected $state = 'stand';//up,down,stand,maintenance
+
+	public function __construct($total_floors=3){
+		$this->setTotalFloors($total_floors);
 	}
 	/**
 	 * Enable debugging
 	 */
-	public function enableDebug(){
+	public function enableDebug($debug_level='none'){
 		self::$debug = true;
+		$valid_levels = array('debug','save','none','');
+		if(in_array($debug_level,$valid_levels)){
+			self::$debug_level = $debug_level;
+		}else{
+			self::$debug_level = 'none';
+		}
+		Log::save('debug_level:  '.self::$debug_level);
 	}
 	/**
 	 * Calculate number of floors in the building
@@ -46,17 +41,23 @@ class Elevator{
 	 * @return boolean
 	 */
 	public function setCurrentFloor($floor){
-// 		Log::save('setCurrentFloor '.$floor);
-		if(intval($floor) >= $this->max_floor){
-			$floor = $this->max_floor;
-			$this->setDirection('down');
-		}elseif($floor<=1){
+		self::fb('setCurrentFloor '.$floor);
+//		if(intval($floor) >= $this->max_floor){
+//			self::fb('floor>='.$this->max_floor);
+//			$floor = $this->max_floor;
+//			$this->setDirection('down');
+//		}elseif(intval($floor)<1){
+//			self::fb('floor<1');
+//			$floor = 1;
+//			$this->setDirection('up');
+//		}else{
+//			self::fb('ELSE');
+//		}
+//		self::fb('NEW CURRENT FLOOR IS '.$floor);
+		if(intval($floor)==0){
 			$floor = 1;
-			$this->setDirection('up');
-		}else{
-			$this->setSignal('door_close');
-		}	
-		$this->current_floor = $floor;
+		}
+		$this->current_floor = intval($floor);
 		return true;
 	}
 	/**
@@ -91,9 +92,9 @@ class Elevator{
 	 */
 	public function switchDirection(){
 		if($this->direction=='up'){
-			$this->setDirection('down');
+			return $this->setDirection('down');
 		}else{
-			$this->setDirection('up');
+			return $this->setDirection('up');
 		}
 	}
 
@@ -104,10 +105,12 @@ class Elevator{
 	public function setSignal($signal){
 		$valid_signals = array('alarm','door_open','door_close');
 		if(in_array($signal,$valid_signals)){
-			$this->signal = $signal;	
+			$this->signal = $signal;
 // 			Log::save($signal.' in '.$this->current_floor);
+			self::fb('Signal set:'.$signal);
 			return true;
 		}
+		self::fb('Cant set Signal');
 		return false;
 	}
 	/**
@@ -118,9 +121,9 @@ class Elevator{
 		return $this->signal;
 	}
 	/**
-	 * If floor its under maintenance
-	 * @param $floor number of floor
-	 */
+ * If floor its under maintenance
+ * @param $floor number of floor
+ */
 	public function setFloorInMaintenance($floor){
 		if(!$this->validateFloor($floor)){
 			return false;
@@ -130,11 +133,30 @@ class Elevator{
 		return true;
 	}
 	/**
+	 * The array of floors in maintenance
+	 * @param array $floors floors
+	 */
+	public function setMaintenance($floors){
+		$this->maintenance_floors = array();
+		if(!is_array($floors)){
+			return true;
+		}
+		if(sizeof($floors)==0){
+			return true;
+		}
+		$b = true;
+		foreach($floors as $k=>$floor){
+			$b &= $this->setFloorInMaintenance($floor);
+		}
+		$this->maintenance_floors = array_unique($this->maintenance_floors);
+		return $b;
+	}
+	/**
 	 * Get the list of floors in maintenance
 	 * @return array $floors
 	 */
 	public function getMaintenanceFloors(){
-		return $this->maintenance_floors;
+		return array_unique($this->maintenance_floors);
 	}
 	
 	/**
@@ -147,6 +169,27 @@ class Elevator{
 		}
 		return in_array($floor,$this->maintenance_floors);
 	}
+
+	public function getNearestFloor(){
+		$nRequest = $this->getTotalPendingRequest('both');
+		if($nRequest==0){
+			return $this->getCurrentFloor();
+		}
+		$this->getQueue('both');
+		$nRequestDown = $this->getQueue('down');//number of request to down
+		$nRequestUp = $this->getQueue('up');//number of request to up
+		$nDiffToRoof = $this->max_floor - $this->current_floor;//floors to Roof
+		$nDiffToGround = $this->current_floor-1;//floors to Ground
+		if($nDiffToGround==$nDiffToRoof){
+			if($nRequestUp>$nRequestDown) {
+				$this->setDirection('up');
+				return current($this->queue['up']);
+			}
+		}else{
+			$this->setDirection('down');
+			return current($this->queue['down']);
+		}
+	}
 	/**
 	 * Calculate the next floor according to requests
 	 * @return number $current_floor
@@ -154,8 +197,12 @@ class Elevator{
 	public function nextFloor(){
 		if($this->getTotalPendingRequest('both')==0){
 // 			Log::save('No pending requests... Return current floor F'.$this->current_floor);
+			$this->switchDirectionIfisNecesary();
 			return $this->getCurrentFloor();
 		}
+//		if($this->direction=='stand'){
+//			return getNearestFloor();
+//		}
 		self::fb('queue[up]  :'.implode(',',$this->queue['up']));
 		self::fb('queue[down]:'.implode(',',$this->queue['down']));
 		$startFloor = $this->getCurrentFloor();//in the same direction
@@ -163,33 +210,45 @@ class Elevator{
 		self::fb('nRequest:'.$nRequest);
 		if($nRequest==0){
 			self::fb('switchDirection:'.$this->direction);
-			$this->switchDirection();
+			if(!$this->switchDirection()){
+				self::fb('Cant switch direction.');
+			}
 			self::fb('new Direction is:'.$this->direction);
 			self::fb('nRequest['.$this->direction.']:'.$this->getTotalPendingRequest($this->direction));
 			if($this->getTotalPendingRequest($this->direction)==0){
+				$this->switchDirectionIfisNecesary();
 				return 	$this->getCurrentFloor();	
 			}
 		}
-		
 		//set currentFloor is the first in the queue[this->direction]
 		$this->setCurrentFloor(current($this->queue[$this->direction]));
 		self::fb('current_floor:'.$this->getCurrentFloor() );
-		
 		//remove the first in the queue[this->direction]
-		self::fb('remove from queue F'.$this->getCurrentFloor().' '.$this->direction );
+		self::fb('remove from queue['.$this->direction .'] floor '.$this->getCurrentFloor());
 		if(!$this->removeFloorFromQueue($this->getCurrentFloor(), $this->direction) ){
-			self::fb('Cant remove '.$this->getCurrentFloor().' from queue '.$this->direction);
-			$this->switchDirection();
-			self::fb('switchDirection now direction is '.$this->direction);
-			self::fb('Remove '.$this->getCurrentFloor().' from queue '.$this->direction);
-			$this->removeFloorFromQueue($this->getCurrentFloor(), $this->direction);
+			self::fb('Cant remove '.$this->getCurrentFloor().' from queue '.$this->direction.' switch direction');
 		}else{
 			self::fb('F'.$this->getCurrentFloor().' removed from queue '.$this->direction);
 		}
-// 		Log::save($startFloor.' - ' .$this->getCurrentFloor());
 		self::fb($startFloor.' - ' .$this->getCurrentFloor());
-		self::fb("");
 		return $this->getCurrentFloor();
+	}
+
+	/**
+	 * If is in the last floor, change direction down, if is in the first go Up
+	 * @return bool
+	 */
+	public function switchDirectionIfisNecesary(){
+		$floor = $this->getCurrentFloor();
+		if(intval($floor) >= $this->max_floor){
+			self::fb('floor '.$this->max_floor.' change direction DOWN');
+			return $this->setDirection('down');
+		}elseif(intval($floor)<=1){
+			self::fb('floor 1 change direction UP');
+			return $this->setDirection('up');
+		}
+		self::fb('No direction changes required!');
+		return false;
 	}
 	/**
 	 * Add request to the queue of the elevator
@@ -242,8 +301,18 @@ class Elevator{
 	 * Returns the queue
 	 * @return array $queue
 	 */
-	public function getQueue(){
-		return $this->queue;
+	public function getQueue($direction='both'){
+		switch($direction){
+			case 'up':
+				return $this->queue['up'];
+				break;
+			case 'down':
+				return $this->queue['down'];
+				break;
+			default:
+				return $this->queue;
+		}
+
 	}
 	/**
 	 * Setup the queue request
@@ -367,11 +436,22 @@ class Elevator{
 		return true;
 	}
 	
-	protected function setTotalFloors($nFloors){
-		$this->max_floor = ( intval($nFloors)==0?1:intval($nFloors));
+	public function setTotalFloors($total_floors){
+		$this->max_floor = ( intval($total_floors)==0?1:intval($total_floors));
 	}
 	
 	protected static function fb($msg){
-		Log::debug($msg,self::$debug);
+//		if(self::$debug){
+//			switch(self::$debug_level){
+//				case ('debug'):
+//					Log::debug($msg,self::$debug);
+//					break;
+//				case ('save'):
+					Log::save($msg);
+//					break;
+//			}
+//		}
+
+
 	}
 }
